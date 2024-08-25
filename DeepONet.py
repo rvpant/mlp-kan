@@ -33,7 +33,14 @@ warnings.filterwarnings("ignore")
 # %%
 cluster = False
 save = True
-modeltype = "efficient_kan" # "densenet"  #
+
+#Change here from Hassan's original: add command line argument for model type.
+model_parser = argparse.ArgumentParser()
+model_parser.add_argument('-model', dest='modeltype', type=str, default='densenet',
+                           help='Model type.', choices=['densenet', 'efficient_kan'])
+modeltype = model_parser.parse_args().modeltype
+print(f"Running with modeltype {modeltype}.")
+# modeltype = "efficient_kan" # "densenet"  #
 
 # %%
 if cluster == True:
@@ -273,9 +280,9 @@ for epoch in range(n_epochs):
         iteration+=1
     
 if save == True:
-    np.save(os.path.join(resultdir,'iteration_list.npy'), np.asarray(iteration_list))
-    np.save(os.path.join(resultdir,'loss_list.npy'), np.asarray(loss_list))
-    np.save(os.path.join(resultdir,'learningrates_list.npy'), np.asarray(learningrates_list))
+    np.save(os.path.join(resultdir, f'iteration_list_{modeltype}.npy'), np.asarray(iteration_list))
+    np.save(os.path.join(resultdir, f'loss_list_{modeltype}.npy'), np.asarray(loss_list))
+    np.save(os.path.join(resultdir, f'learningrates_list_{modeltype}.npy'), np.asarray(learningrates_list))
     
 plt.figure()
 plt.plot(iteration_list, loss_list, 'g', label = 'training loss')
@@ -285,7 +292,7 @@ plt.ylabel('Training loss')
 plt.legend()
 plt.tight_layout()
 if save == True:
-    plt.savefig(os.path.join(resultdir,'loss_plot.pdf'))
+    plt.savefig(os.path.join(resultdir, f'loss_plot_{modeltype}.jpg'))
 
 plt.figure()
 plt.plot(iteration_list, learningrates_list, 'b', label = 'learning-rate')
@@ -294,14 +301,14 @@ plt.ylabel('Learning-rate')
 plt.legend()
 plt.tight_layout()
 if save == True:
-    plt.savefig(os.path.join(resultdir,'learning-rate_plot.pdf'))
+    plt.savefig(os.path.join(resultdir, f'learning-rate_plot_{modeltype}.jpg'))
     
 # end timer
 finish = time.time() - start  # time for network to train
 
 # %%
 if save == True:
-    torch.save(model.state_dict(), os.path.join(resultdir,'model_state_dict.pt'))
+    torch.save(model.state_dict(), os.path.join(resultdir, f'model_state_dict_{modeltype}.pt'))
 # model.load_state_dict(torch.load(os.path.join(resultdir,'model_state_dict.pt')))
 
 # %%
