@@ -17,11 +17,14 @@ from scipy.io import loadmat
 
 import sys
 sys.path.append("../..")
+sys.path.append('..')
+sys.path.append('../operator_testing')
+from operator_testing.deeponet_derivative import KANBranchNet, KANTrunkNet
 from networks import *
 import efficient_kan
 # from efficient_kan import *
 import kan
-print("OG KAN import success")
+# print("OG KAN import success")
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -40,7 +43,8 @@ save = True
 #Change here from Hassan's original: add command line argument for model type.
 model_parser = argparse.ArgumentParser()
 model_parser.add_argument('-model', dest='modeltype', type=str, default='densenet',
-                           help='Model type.', choices=['densenet', 'efficient_kan', 'original_kan'])
+                           help='Model type.',
+                           choices=['densenet', 'efficient_kan', 'original_kan', 'cheby', 'jacobi', 'legendre'])
 modeltype = model_parser.parse_args().modeltype
 print(f"Running with modeltype {modeltype}.")
 # modeltype = "efficient_kan" # "densenet"  #
@@ -158,7 +162,7 @@ class DeepONet(nn.Module):
         results = torch.einsum('ik, lk -> il', branch_outputs, trunk_outputs)
         
         return results
-
+    
 # %%
 class Sin(nn.Module):
     def __init__(self):
@@ -181,6 +185,12 @@ if modeltype == 'efficient_kan':
     branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
 elif modeltype == 'original_kan':
     branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+elif modeltype == 'cheby':
+    branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan')
+elif modeltype == 'jacobi':
+    branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan')
+elif modeltype == 'legendre':
+    branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan')
 else:
     branch_net = DenseNet(layersizes=[input_neurons_branch] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
 branch_net.to(device)
@@ -196,6 +206,12 @@ if modeltype == 'efficient_kan':
     trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [input_neurons_trunk*2+1]*1 + [p])
 elif modeltype == 'original_kan':
     trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+elif modeltype == 'cheby':
+    trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan')
+elif modeltype == 'jacobi':
+    trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan')
+elif modeltype == 'legendre':
+    trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan')
 else:
     trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
 trunk_net.to(device)
@@ -206,6 +222,9 @@ print('#'*100)
 
 model = DeepONet(branch_net, trunk_net)
 model.to(device)
+# print('#'*20)
+# model_trainable_params = sum([p.numel() for p in model.parameters()])
+# print(f"{modeltype} num params: {model_trainable_params}")
 
 # %%
 def count_learnable_parameters(model):
@@ -231,7 +250,7 @@ scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=16000, gamma=1.
 iteration_list, loss_list, learningrates_list = [], [], []
 iteration = 0
 
-n_epochs = 100 #2000 #800 # 10
+n_epochs = 1000 #2000 #800 # 10
 for epoch in range(n_epochs):
     
     # Shuffle the train data using the generated indices
