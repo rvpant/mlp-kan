@@ -3,3 +3,5 @@ KANvsMLP/*.npy
 data/*
 __pycache__/*
 efficient_kan/__pycache__/*
+figures/*
+figures.zip
