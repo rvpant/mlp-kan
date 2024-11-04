@@ -16,6 +16,7 @@ from scipy.io import loadmat
 import sys
 from networks import DenseNet  ## otherwise define the MLP architecture
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import urllib.request
 from scipy.interpolate import griddata
 
@@ -181,12 +182,13 @@ axs[3].add_patch(plt.Rectangle((16/31, 16/31), 15/31, 15/31, fill=True, color='w
 axs[3].set_title(r'$\hat{u}$')
 
 grid_intensity_error = griddata(points, abs_error, (grid_x, grid_y), method='cubic')
-im5 = axs[4].pcolormesh(grid_x, grid_y, grid_intensity_error, cmap='jet', shading='auto')
+im5 = axs[4].pcolormesh(grid_x, grid_y, grid_intensity_error, cmap='jet', shading='auto', vmin=0)
 axs[4].add_patch(plt.Rectangle((16/31, 16/31), 15/31, 15/31, fill=True, color='white'))
 axs[4].set_title(r'$abs error$')
 
-cbar_ax = fig.add_axes([0.93, 0.15, 0.02, 0.7])  # [left, bottom, width, height]
-cbar = fig.colorbar(im5, cax=cbar_ax)
+divider = make_axes_locatable(axs[4])
+cax = divider.append_axes("right", size="5%", pad=0.05)
+cbar = fig.colorbar(im5, cax=cax)
 
 plt.tight_layout()
 plt.savefig('Darcy_2D_results.png', dpi=400, bbox_inches='tight')
