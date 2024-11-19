@@ -19,12 +19,15 @@ class DenseNet(nn.Module):
                     where, dim_in and dim_out are network's input and output dimension respectively
     -> activation: Non-linear activations function that you want to use. E.g. nn.Sigmoid(), nn.ReLU()
     -> The method model_capacity() returns the number of layers and parameters in the network.
+     -> adapt_activation: False by default, if set to true it implements the adaptive scaling of activation function through additional trainable parameter a
     """
-    def __init__(self, layersizes=[2, 32, 32, 32, 1], activation=nn.Sigmoid()):
+    def __init__(self, layersizes=[2, 32, 32, 32, 1], activation=nn.Sigmoid(), adapt_activation=False):
         super(DenseNet, self).__init__()
         
         self.layersizes = layersizes
         self.activation = activation
+        if adapt_activation==True:
+            self.a = nn.Parameter(torch.tensor(1.0))
         
         self.input_dim,  self.hidden_sizes, self.output_dim = self.layersizes[0], self.layersizes[1:-1], self.layersizes[-1]
         
@@ -37,7 +40,10 @@ class DenseNet(nn.Module):
     def forward(self, x):
         
         for i in range(self.nlayers-1):
-            x = self.activation(self.layers[i](x))
+            if hasattr(self, 'a'):
+                x = self.activation(self.a * self.layers[i](x))
+            else:
+                x = self.activation(self.layers[i](x))
          
         # no activation for last layer
         out = self.layers[-1](x)
