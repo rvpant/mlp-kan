@@ -5,3 +5,10 @@ __pycache__/*
 efficient_kan/__pycache__/*
 figures/*
 figures.zip
+*.mat
+*.err
+*.out
+*.pt
+*.mat
+*.jpg
+*.png
