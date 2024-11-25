@@ -17,6 +17,7 @@ from scipy.io import loadmat
 import sys
 from networks import DenseNet  ## otherwise define the MLP architecture
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import urllib.request
 from scipy.interpolate import griddata
 
