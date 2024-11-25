@@ -63,11 +63,15 @@ def main():
     parser.add_argument('--batch_size', type=int, default=2048, help='Batch size for training')
     parser.add_argument('--modeltype', type=str, default='densenet', help='Branch/Trunk model.',
                         choices=['densenet', 'efficient_kan', 'original_kan', 'cheby', 'jacobi', 'legendre'])
+    parser.add_argument('-mode', dest='mode', type=str, default='shallow',
+                            help='Network architecture mode.',
+                            choices=['shallow', 'deep'])
     args = parser.parse_args()
     epochs = args.epochs
     batch_size = args.batch_size
     lr = args.lr
     modeltype = args.modeltype
+    mode = args.mode
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('device: ', device)
@@ -78,7 +82,7 @@ def main():
     random.seed(seed)
 
     #defining the output directory
-    output_dir = os.path.join(os.getcwd(), '2D_Darcy_DeepONet')
+    output_dir = os.path.join(os.getcwd(), f'2D_Darcy_DeepONet/{mode}')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -128,58 +132,121 @@ def main():
     input_neurons_trunk = 2
     p = 64
 
-    if modeltype=='efficient_kan':
-        # branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
-        # trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
-        branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
-        branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk]+[2*input_neurons_trunk]*2+[p])
-        trunk_net.to(device)
-    elif modeltype == 'original_kan':
-        # branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
-        # trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
-        branch_net1 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
-        branch_net2 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = kan.KAN(width=[input_neurons_trunk, 2*input_neurons_trunk+1, p], grid=5, k=3, seed=0)
-        trunk_net.to(device)
-    elif modeltype == 'cheby':
-        # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
-        # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
-        branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
-        branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
-        trunk_net.to(device)
-    elif modeltype == 'jacobi':
-        # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
-        # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
-        branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
-        branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
-        trunk_net.to(device)
-    elif modeltype == 'legendre':
-        # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
-        # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
-        branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
-        branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
-        trunk_net.to(device)
+    if mode == 'deep':
+        if modeltype=='efficient_kan':
+            # branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+            # trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
+            branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
+            branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk]+[2*input_neurons_trunk]*2+[p])
+            trunk_net.to(device)
+        elif modeltype == 'original_kan':
+            print("WARNING: running using base KAN implementation -- unstable.")
+            # branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+            # trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+            branch_net1 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
+            branch_net2 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = kan.KAN(width=[input_neurons_trunk, 2*input_neurons_trunk+1, p], grid=5, k=3, seed=0)
+            trunk_net.to(device)
+        elif modeltype == 'cheby':
+            # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
+            branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        elif modeltype == 'jacobi':
+            # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
+            branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        elif modeltype == 'legendre':
+            # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
+            branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        else:
+            branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net.to(device)
+    elif mode == 'shallow':
+        if modeltype=='efficient_kan':
+            branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+            branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
+            # branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
+            # branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*2+[p])
+            branch_net1.to(device)
+            branch_net2.to(device)
+            # trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk]+[2*input_neurons_trunk]*2+[p])
+            trunk_net.to(device)
+        elif modeltype == 'original_kan':
+            print("WARNING: running using base KAN implementation -- unstable.")
+            # branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+            # trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+            branch_net1 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
+            branch_net2 = kan.KAN(width=[input_neurons_branch, 2*input_neurons_branch+1, p], grid=5, k=3, seed=0)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = kan.KAN(width=[input_neurons_trunk, 2*input_neurons_trunk+1, p], grid=5, k=3, seed=0)
+            trunk_net.to(device)
+        elif modeltype == 'cheby':
+            branch_net1 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
+            # branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            # branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        elif modeltype == 'jacobi':
+            branch_net1 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
+            # branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            # branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        elif modeltype == 'legendre':
+            branch_net1 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
+            # branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            # branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            branch_net1.to(device)
+            branch_net2.to(device)
+            # trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', degree=8, layernorm=False)
+            trunk_net.to(device)
+        else:
+            branch_net1 = DenseNet(layersizes=[sensor_size] + [1000] + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net2 = DenseNet(layersizes=[sensor_size] + [1000] + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net1.to(device)
+            branch_net2.to(device)
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [1000] + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net.to(device)
     else:
-        branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
-        branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
-        branch_net1.to(device)
-        branch_net2.to(device)
-        trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
-        trunk_net.to(device)
+        print('Incorrect architecture mode provided, must be one of "shallow" or "deep".')
+        return
     model = DeepONet(branch_net1, branch_net2, trunk_net)
     #print(f"BranchNet 1 Summary, modeltype {modeltype}:")
     #print(summary(model.branch_net1))
@@ -191,6 +258,7 @@ def main():
     #print(summary(model.trunk_net))
     #print('#'*30)
     model.to(device)
+    print(f"Running 2D Darcy with modeltype {modeltype}, architecture mode {mode}.")
 
 
     # Define optimizer and loss function
