@@ -55,9 +55,14 @@ def main():
     model_parser.add_argument('-mode', dest='mode', type=str, default='shallow',
                             help='Network architecture mode.',
                             choices=['shallow', 'deep'])
-    modeltype = model_parser.parse_args().modeltype
-    mode = model_parser.parse_args().mode
+    model_parser.add_argument('-adaptive', action='store_true', help='Enables adaptive activations on DenseNet.')
+    args = model_parser.parse_args()
+    modeltype = args.modeltype
+    mode = args.mode
+    adaptive = args.adaptive
     print(f"Running 1D Darcy with modeltype {modeltype}, architecture: {mode}.")
+    if mode=='densenet':
+        print(f"Adaptive activations on DenseNet: {adaptive}.")
 
     seed=0
     np.random.seed(seed)
@@ -124,9 +129,9 @@ def main():
             branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     elif mode=='deep':
         if modeltype=='efficient_kan':
@@ -146,9 +151,9 @@ def main():
             branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     else:
         print('Invalid architecture mode argument passed: must be one of "shallow" or "deep" (default).')
