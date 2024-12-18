@@ -56,10 +56,13 @@ def main():
                             help='Network architecture mode.',
                             choices=['shallow', 'deep'])
     model_parser.add_argument('-adaptive', action='store_true', help='Enables adaptive activations on DenseNet.')
+    model_parser.add_argument('-noise', dest='noise', type=float, default=0.0,
+                            help='Input perturbation noise.')
     args = model_parser.parse_args()
     modeltype = args.modeltype
     mode = args.mode
     adaptive = args.adaptive
+    noise = args.noise
     print(f"Running 1D Darcy with modeltype {modeltype}, architecture: {mode}.")
     if mode=='densenet':
         print(f"Adaptive activations on DenseNet: {adaptive}.")
@@ -76,6 +79,11 @@ def main():
     output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    if not noise==0.0:
+        output_dir = os.path.join(output_dir, f'noise_{noise}')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
     # load and process data
     train_data_path = 'nonlineardarcy_train.mat'
@@ -110,6 +118,9 @@ def main():
     input_neurons_branch = 50 #This is based on Xingjian's choice, worth changing?
     input_neurons_trunk = 1
     p = 20 #Again, is this worth modifying?
+
+    #Added by Raghav: random, noisy perturbation of the training inputs.
+    input_train = input_train + np.random.normal(loc=0.0, scale=noise, size=input_train.shape)
 
     #Defining the model, across the two different modes.
     if mode=='shallow':

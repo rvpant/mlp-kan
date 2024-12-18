@@ -90,8 +90,12 @@ def main():
     model_parser.add_argument('-mode', dest='mode', type=str, default='shallow',
                             help='Network architecture mode.',
                             choices=['shallow', 'deep'])
-    modeltype = model_parser.parse_args().modeltype
-    mode = model_parser.parse_args().mode
+    model_parser.add_argument('-noise', dest='noise', type=float, default=0.0,
+                            help='Input perturbation noise.')
+    args = model_parser.parse_args()
+    modeltype = args.modeltype
+    mode = args.mode
+    noise = args.noise
     print(f"Running with modeltype {modeltype}, architecture mode {mode}.")
     # modeltype = "efficient_kan" # "densenet"  #
 
@@ -111,8 +115,8 @@ def main():
         seed = 0 # Seed number.
 
     if save == True:
-        resultdir = os.path.join(os.getcwd(), 'DeepONet_results', 'seed='+str(seed))
-        plots_resultdir = os.path.join(resultdir, f'plots/{modeltype}') 
+        resultdir = os.path.join(os.getcwd(), f'DeepONet_results/{mode}', 'seed='+str(seed))
+        plots_resultdir = os.path.join(resultdir, f'plots/{mode}/{modeltype}') 
         if not os.path.exists(resultdir):
             os.makedirs(resultdir)
         if not os.path.exists(plots_resultdir):
@@ -123,6 +127,14 @@ def main():
         q = open(os.path.join(resultdir, 'output-'+'seed='+str(seed)+'.txt'), 'w')
         sys.stdout = q
         print ("------START------")
+    
+    if not noise==0.0:
+        resultdir = os.path.join(resultdir, f'noise_{noise}')
+        plots_resultdir = os.path.join(plots_resultdir, f'noise_{noise}')
+        if not os.path.exists(resultdir):
+            os.makedirs(resultdir)
+        if not os.path.exists(plots_resultdir):
+            os.makedirs(plots_resultdir)
 
     print('seed = '+str(seed))
 
@@ -172,6 +184,9 @@ def main():
     # Split the data into training (2000) and testing (500) samples
     inputs_train, inputs_test, outputs_train, outputs_test = train_test_split(inputs, outputs, test_size=500, random_state=seed)
 
+    #Added by Raghav: random, noisy perturbation of the training inputs.
+    inputs_train = inputs_train + np.random.normal(loc=0.0, scale=noise, size=inputs_train.shape)
+    
     # Check the shapes of the subsets
     print("Shape of inputs_train:", inputs_train.shape)
     print("Shape of inputs_test:", inputs_test.shape)
@@ -205,18 +220,18 @@ def main():
     elif mode=='deep':
         if modeltype == 'efficient_kan':
             # branch_net = KAN(layers_hidden=[input_neurons_branch] + [100]*6 + [p])
-            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*2 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*3 + [p])
         elif modeltype == 'original_kan':
             branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
         elif modeltype == 'cheby':
-            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', layernorm=False)
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='cheby_kan', layernorm=False)
         elif modeltype == 'jacobi':
-            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', layernorm=False)
         elif modeltype == 'legendre':
-            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='legendre_kan', layernorm=False)
         else:
             # branch_net = DenseNet(layersizes=[input_neurons_branch] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
-            branch_net = DenseNet(layersizes=[input_neurons_branch]+[128]*3+[p], activation=nn.SiLU())
+            branch_net = DenseNet(layersizes=[input_neurons_branch]+[128]*6+[p], activation=nn.SiLU())
     else:
         print("Invalid architecture mode passed, must be one of 'shallow' or 'deep'.")
     branch_net.to(device)
