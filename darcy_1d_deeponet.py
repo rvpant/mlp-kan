@@ -46,6 +46,136 @@ def count_learnable_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
+def load_data(device):
+    # load and process data
+    train_data_path = 'nonlineardarcy_train.mat'
+    test_data_path = 'nonlineardarcy_test.mat'
+    train_data_url = 'https://drive.usercontent.google.com/download?id=1DTAkXxMjB2xekkqQt1CLwGeKtz5LP6e1&export=download&authuser=0&confirm=t&uuid=cbe6a789-0751-466b-a95d-ee33ff43d6c1&at=APZUnTVEUevchEMmdzxatZeZ3Saj:1723137744388'
+    test_data_url = 'https://drive.usercontent.google.com/download?id=1PsKE5yQkIM8fWBdC51d9VKP55TQZ06OC&export=download&authuser=0&confirm=t&uuid=51001974-28a4-468b-a717-20dc3e80a98e&at=APZUnTVp9b1TpDyRuapd8isoC-WR:1723137779616'  
+
+    # Function to download data
+    def download_data(url, filename):
+        print(f'Downloading {filename} from {url}...')
+        urllib.request.urlretrieve(url, filename)
+        print(f'{filename} downloaded.')
+
+    # Check if files exist, otherwise download them
+    if not os.path.exists(train_data_path):
+        download_data(train_data_url, train_data_path)
+        
+    if not os.path.exists(test_data_path):
+        download_data(test_data_url, test_data_path)
+        
+    data_train = loadmat(train_data_path)
+    data_test = loadmat(test_data_path)    
+
+    input_train = torch.from_numpy(data_train['f_train']).to(device).float()
+    output_train = torch.from_numpy(data_train['u_train']).to(device).float()
+    x_train = torch.from_numpy(data_train['x']).to(device).float().t()
+
+    input_test = torch.from_numpy(data_test['f_test']).to(device).float()
+    output_test = torch.from_numpy(data_test['u_test']).to(device).float()
+    x_test = torch.from_numpy(data_test['x']).to(device).float().t()
+
+    return input_train, output_train, x_train, input_test, output_test, x_test
+
+def plot_results(predictions, ground_truth, x, output_dir, modeltype, num_instances=3):
+    plt.figure(figsize=(12, 6))
+        
+    for i in range(num_instances):
+        plt.subplot(1, num_instances, i + 1)
+        plt.plot(x.detach().cpu().numpy(), ground_truth[i].detach().cpu().numpy(), label='Ground Truth', color='blue')
+        plt.plot(x.detach().cpu().numpy(), predictions[i].detach().cpu().numpy(), label='Prediction', color='red', linestyle='dashed')
+        plt.title(f'Instance {i+1}')
+        plt.xlabel('x')
+        plt.ylabel('u(x)')
+        plt.legend()
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
+    plt.suptitle(f'1D Darcy {modeltype} Predictions')
+    plt.savefig(f'{output_dir}/{modeltype}_predictions_and_true.png', dpi=400,bbox_inches='tight')
+    plt.close()
+
+def test_error_analysis(predictions, ground_truth, x, output_dir, modeltype):
+    
+    #error analysis of the individual prediction vs true errors.
+    uhat = predictions.detach().cpu().numpy().copy() #array
+    u = ground_truth.detach().cpu().numpy().copy()
+    abs_errors = np.abs(uhat - u)
+    l2_errors = []
+    print(f"Predictions shape: {np.shape(uhat)}")
+    print(f"True data shape: {np.shape(u)}")
+    for pred, true in zip(uhat, u):
+        print(np.shape(pred), np.shape(true))
+        num = np.linalg.norm(pred-true, ord=2)
+        denom = np.linalg.norm(true)
+        l2_errors.append(num/denom)
+    print("Absolute and L2 error shapes:")
+    print(np.shape(abs_errors), np.shape(l2_errors))
+    print("#"*30)
+
+    # can add functionality here to plot the worst-case prediction if needed.
+    
+    return abs_errors, l2_errors
+
+def create_model(modeltype, mode, device, adaptive=False):
+    input_neurons_branch = 50 #This is based on Xingjian's choice, worth changing?
+    input_neurons_trunk = 1
+    p = 20 #Again, is this worth modifying?
+
+    #Defining the model, across the two different modes.
+    if mode=='shallow':
+        if modeltype=='efficient_kan':
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
+        elif modeltype == 'original_kan':
+            branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+            trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            # branch_net.to(device)
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            # trunk_net.to(device)
+    elif mode=='deep':
+        if modeltype=='efficient_kan':
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*2 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+        elif modeltype == 'original_kan':
+            print("WARNING: running using original KAN implementation: shallow and unstable.")
+            branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+            trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            # branch_net.to(device)
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            # trunk_net.to(device)
+    else:
+        print('Invalid architecture mode argument passed: must be one of "shallow" or "deep" (default).')
+        return
+    model = DeepONet(branch_net, trunk_net)
+    model.to(device)
+
+    return model
+
 def main():
     #Change here from Hassan's original: add command line argument for model type.
     model_parser = argparse.ArgumentParser()
@@ -120,7 +250,8 @@ def main():
     p = 20 #Again, is this worth modifying?
 
     #Added by Raghav: random, noisy perturbation of the training inputs.
-    input_train = input_train + np.random.normal(loc=0.0, scale=noise, size=input_train.shape)
+    input_noise = torch.randn_like(input_train)*noise
+    input_train = input_train + input_noise
 
     #Defining the model, across the two different modes.
     if mode=='shallow':

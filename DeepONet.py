@@ -77,6 +77,200 @@ class Sin(nn.Module):
     def forward(self, x):
         return torch.sin(x)
 
+def create_model(modeltype, mode, device):
+    data = loadmat('data/Burger.mat') # Load the .mat file
+    seed = 0
+    #print(data)
+    print(data['tspan'].shape)
+    print(data['input'].shape)  # Initial conditions: Gaussian random fields, Nsamples x 101, each IC sample is (1 x 101)
+    print(data['output'].shape) # Time evolution of the solution field: Nsamples x 101 x 101.
+                                # Each field is 101 x 101, rows correspond to time and columns respond to location.
+                                # First row corresponds to solution at t=0 (1st time step)
+                                # and next  row corresponds to solution at t=0.01 (2nd time step) and so on.
+                                # last row correspond to solution at t=1 (101th time step).
+
+    # %%
+    # Convert NumPy arrays to PyTorch tensors
+    inputs = torch.from_numpy(data['input']).float().to(device)
+    outputs = torch.from_numpy(data['output']).float().to(device)
+
+    t_span = torch.from_numpy(data['tspan'].flatten()).float().to(device)
+    x_span = torch.linspace(0, 1, data['output'].shape[2]).float().to(device)
+    nt, nx = len(t_span), len(x_span) # number of discretizations in time and location.
+    print("nt =",nt, ", nx =",nx)
+    print("Shape of t-span and x-span:",t_span.shape, x_span.shape)
+    print("t-span:", t_span)
+    print("x-span:", x_span)
+
+    # Estimating grid points
+    T, X = torch.meshgrid(t_span, x_span)
+    # print(T)
+    # print(X)
+    grid = torch.vstack((T.flatten(), X.flatten())).T
+    print("Shape of grid:", grid.shape) # (nt*nx, 2)
+    print("grid:", grid) # time, location
+
+    # Split the data into training (2000) and testing (500) samples
+    inputs_train, inputs_test, outputs_train, outputs_test = train_test_split(inputs, outputs, test_size=500, random_state=seed)
+    
+    # Check the shapes of the subsets
+    print("Shape of inputs_train:", inputs_train.shape)
+    print("Shape of inputs_test:", inputs_test.shape)
+    print("Shape of outputs_train:", outputs_train.shape)
+    print("Shape of outputs_test:", outputs_test.shape)
+    print('#'*100)
+
+    """
+    input_neurons_branch: Number of input neurons in the branch net.
+    input_neurons_trunk: Number of input neurons in the trunk net.
+    p: Number of output neurons in both the branch and trunk net.
+    """
+    p = 100 # Number of output neurons in both the branch and trunk net.
+
+    input_neurons_branch = nx # m
+    if mode=='shallow':
+        if modeltype == 'efficient_kan':
+            # branch_net = KAN(layers_hidden=[input_neurons_branch] + [100]*6 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+        elif modeltype == 'original_kan':
+            branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            # branch_net = DenseNet(layersizes=[input_neurons_branch] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch]+[1000]+[p], activation=nn.SiLU())
+    elif mode=='deep':
+        if modeltype == 'efficient_kan':
+            # branch_net = KAN(layers_hidden=[input_neurons_branch] + [100]*6 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*3 + [p])
+        elif modeltype == 'original_kan':
+            branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            # branch_net = DenseNet(layersizes=[input_neurons_branch] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch]+[128]*6+[p], activation=nn.SiLU())
+    else:
+        print("Invalid architecture mode passed, must be one of 'shallow' or 'deep'.")
+    branch_net.to(device)
+    # print(branch_net)
+    print('BRANCH-NET SUMMARY:')
+    # summary(branch_net, input_size=(input_neurons_branch,))  
+    print('#'*100)
+
+    # 2 corresponds to t and x
+    input_neurons_trunk = 2
+    if mode=='deep':
+        if modeltype == 'efficient_kan':
+            # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+        elif modeltype == 'original_kan':
+            trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            # trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[128]*3+[p], activation=nn.SiLU())
+    elif mode == 'shallow':
+        if modeltype == 'efficient_kan':
+            # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
+        elif modeltype == 'original_kan':
+            trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+        elif modeltype == 'cheby':
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
+        elif modeltype == 'jacobi':
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
+        elif modeltype == 'legendre':
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
+        else:
+            # trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[1000]+[p], activation=nn.SiLU())
+    trunk_net.to(device)
+    # print(trunk_net)
+    print('TRUNK-NET SUMMARY:')
+    # summary(trunk_net, input_size=(input_neurons_trunk,))
+    print('#'*100)
+
+    model = DeepONet(branch_net, trunk_net)
+    model.to(device)
+
+    return model
+
+def test_error_analysis(inputs_test, outputs_test, grid, nx, model, modeltype, output_dir):
+    mse_list = []
+    l2err_list = []
+
+    for i in range(inputs_test.shape[0]):
+        
+        branch_inputs = inputs_test[i].reshape(1, nx) # (bs, m) = (1, nx) 
+        trunk_inputs = grid # (neval, 2) = (nt*nx, 2)
+
+        prediction_i = model(branch_inputs, trunk_inputs).cpu() # (bs, neval) = (1, nt*nx)
+        target_i = outputs_test[i].reshape(1, -1).cpu()
+        mse_i = F.mse_loss(prediction_i, target_i)
+        mse_list.append(mse_i.item())
+
+        # print(f"Pred shape: {prediction_i.shape}", f"Target shape: {target_i.shape}")
+
+        num = np.linalg.norm(prediction_i.detach().numpy() - target_i.detach().numpy(), ord=2)
+        denom = np.linalg.norm(target_i.detach().numpy(), ord=2)
+        l2err_list.append(num/denom)
+    
+    return mse_list, l2err_list
+
+def load_data(device):
+    data = loadmat('data/Burger.mat') # Load the .mat file
+    seed=0
+    #print(data)
+    print(data['tspan'].shape)
+    print(data['input'].shape)  # Initial conditions: Gaussian random fields, Nsamples x 101, each IC sample is (1 x 101)
+    print(data['output'].shape) # Time evolution of the solution field: Nsamples x 101 x 101.
+                                # Each field is 101 x 101, rows correspond to time and columns respond to location.
+                                # First row corresponds to solution at t=0 (1st time step)
+                                # and next  row corresponds to solution at t=0.01 (2nd time step) and so on.
+                                # last row correspond to solution at t=1 (101th time step).
+
+    # %%
+    # Convert NumPy arrays to PyTorch tensors
+    inputs = torch.from_numpy(data['input']).float().to(device)
+    outputs = torch.from_numpy(data['output']).float().to(device)
+
+    t_span = torch.from_numpy(data['tspan'].flatten()).float().to(device)
+    x_span = torch.linspace(0, 1, data['output'].shape[2]).float().to(device)
+    nt, nx = len(t_span), len(x_span) # number of discretizations in time and location.
+    print("nt =",nt, ", nx =",nx)
+    print("Shape of t-span and x-span:",t_span.shape, x_span.shape)
+    print("t-span:", t_span)
+    print("x-span:", x_span)
+
+    # Estimating grid points
+    T, X = torch.meshgrid(t_span, x_span)
+    # print(T)
+    # print(X)
+    grid = torch.vstack((T.flatten(), X.flatten())).T
+    print("Shape of grid:", grid.shape) # (nt*nx, 2)
+    print("grid:", grid) # time, location
+
+    # Split the data into training (2000) and testing (500) samples
+    inputs_train, inputs_test, outputs_train, outputs_test = train_test_split(inputs, outputs, test_size=500, random_state=seed)
+
+
+    print("Burgers data loaded.")
+    return inputs_train, inputs_test, outputs_train, outputs_test, grid, nx
+
 def main():
     # %%
     cluster = False
@@ -185,7 +379,9 @@ def main():
     inputs_train, inputs_test, outputs_train, outputs_test = train_test_split(inputs, outputs, test_size=500, random_state=seed)
 
     #Added by Raghav: random, noisy perturbation of the training inputs.
-    inputs_train = inputs_train + np.random.normal(loc=0.0, scale=noise, size=inputs_train.shape)
+    # inputs_train = inputs_train + np.random.normal(loc=0.0, scale=noise, size=inputs_train.shape)
+    inputs_noise = torch.randn_like(inputs_train)*noise
+    inputs_train = inputs_train + inputs_noise
     
     # Check the shapes of the subsets
     print("Shape of inputs_train:", inputs_train.shape)
@@ -385,7 +581,7 @@ def main():
         np.save(os.path.join(resultdir, f'learningrates_list_{modeltype}.npy'), np.asarray(learningrates_list))
         
     plt.figure()
-    plt.plot(iteration_list, loss_list, 'g', label = 'training loss')
+    plt.plot(iteration_list, loss_list, 'g', label = 'training loss', lw=0.75)
     plt.yscale("log")
     plt.xlabel('Iterations')
     plt.ylabel('Training loss')
@@ -393,7 +589,7 @@ def main():
     plt.tight_layout()
     plt.title(f'Training Loss for {modeltype}')
     if save == True:
-        plt.savefig(os.path.join(resultdir, f'loss_plot_{modeltype}.jpg'))
+        plt.savefig(os.path.join(resultdir, f'loss_plot_{modeltype}.jpg'), bbox_inches='tight')
 
     plt.figure()
     plt.plot(iteration_list, learningrates_list, 'b', label = 'learning-rate')
