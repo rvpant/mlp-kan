@@ -101,8 +101,12 @@ def create_model(modeltype, mode, device):
     y = torch.from_numpy(data_test['y']).to(device).float()
     x_test = torch.cat((x, y), dim=1)
 
+    #scaling of the data as in b2b paper
+    u_train = u_train / 0.008392013609409332
+    u_test = u_test / 0.008392013609409332
+
     # define and set up model
-    sensor_size = f1_train.shape[1]
+    sensor_size = f1_train.shape[1]; print(f"Sensor size (input neurons) = {sensor_size}.")
     input_neurons_branch = sensor_size
     input_neurons_trunk = 2
     p = 64
@@ -155,11 +159,11 @@ def create_model(modeltype, mode, device):
             trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='legendre_kan', degree=3, layernorm=False)
             trunk_net.to(device)
         else:
-            branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
-            branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
             branch_net1.to(device)
             branch_net2.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
             trunk_net.to(device)
     elif mode == 'shallow':
         if modeltype=='efficient_kan':
@@ -281,25 +285,24 @@ def plot_results(f1_test, f2_test, x_test, u_test, model, modeltype, output_dir)
 def test_error_analysis(f1_test, f2_test, x_test, u_test, model, modeltype, output_dir):
     
     predictions_test = model(f1_test, f2_test, x_test)
-    total_params = sum(p.numel() for p in model.parameters())
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total parameter count is {total_params}")
     #error analysis of the individual prediction vs true errors.
     uhat = predictions_test.detach().cpu().numpy() #array
     u = u_test.cpu().numpy()
     abs_errors = np.abs(uhat - u)
-    l2_errors = []
     print(f"Predictions shape: {np.shape(uhat)}")
     print(f"True data shape: {np.shape(u)}")
-    # for pred, true in zip(uhat, u):
-    for i in range(np.shape(uhat)[0]):
-        pred = uhat[i,:]; true = u[i,:]
-        # pred = pred.flatten(); true = true.flatten()
-        # print(np.shape(pred))
-        # print(np.shape(true))
-        num = np.linalg.norm(pred-true, ord=2)
-        denom = np.linalg.norm(true, ord=2)
-        l2_errors.append(num/denom)
-    # print(np.shape(abs_errors), np.shape(l2_errors))
+    l2_errors = np.linalg.norm(uhat - u, axis=1) / np.linalg.norm(u, axis=1)
+    mse_errors = ((uhat-u)**2).mean(axis=1)
+    # for i in range(np.shape(uhat)[0]):
+    #     pred = uhat[i,:]; true = u[i,:]
+    #     # pred = pred.flatten(); true = true.flatten()
+    #     # print(np.shape(pred))
+    #     # print(np.shape(true))
+    #     num = np.linalg.norm(pred-true, ord=2)
+    #     denom = np.linalg.norm(true, ord=2)
+    #     l2_errors.append(num/denom)
 
     # can add functionality here to plot the worst-case prediction if needed.
     worst_idx = np.argmax(l2_errors)
@@ -353,7 +356,7 @@ def test_error_analysis(f1_test, f2_test, x_test, u_test, model, modeltype, outp
     plt.tight_layout()
     plt.savefig(f'{output_dir}/{modeltype}_Darcy_2D_worstcase_rel_error.png', dpi=400, bbox_inches='tight')
 
-    return abs_errors, l2_errors
+    return abs_errors, l2_errors, mse_errors
 
 def load_data(device):
     # load and process data
@@ -396,6 +399,11 @@ def load_data(device):
     x = torch.from_numpy(data_test['x']).to(device).float()
     y = torch.from_numpy(data_test['y']).to(device).float()
     x_test = torch.cat((x, y), dim=1)
+
+    print("Loading and scaling data...")
+    u_train = u_train / 0.008392013609409332
+    u_test = u_test / 0.008392013609409332
+    print("Data scaled.")
 
     return f1_train, f2_train, x_train, u_train, f1_test, f2_test, x_test, u_test
 
@@ -482,6 +490,12 @@ def main():
     y = torch.from_numpy(data_test['y']).to(device).float()
     x_test = torch.cat((x, y), dim=1)
 
+    #scale the data.
+    print("Main method scaling data ...")
+    u_train = u_train / 0.008392013609409332
+    u_test = u_test / 0.008392013609409332
+    print("Data scaled in main.")
+
     # define and set up model
     sensor_size = f1_train.shape[1]
     input_neurons_branch = sensor_size
@@ -492,11 +506,11 @@ def main():
         if modeltype=='efficient_kan':
             # branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
             # trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
-            branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*3+[p])
-            branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[2*input_neurons_branch]*3+[p])
+            branch_net1 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[100]*3+[p])
+            branch_net2 = efficient_kan.KAN(layers_hidden=[input_neurons_branch]+[100]*3+[p])
             branch_net1.to(device)
             branch_net2.to(device)
-            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk]+[2*input_neurons_trunk]*3+[p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk]+[100]*3+[p])
             trunk_net.to(device)
         elif modeltype == 'original_kan':
             print("WARNING: running using base KAN implementation -- unstable.")
@@ -520,11 +534,11 @@ def main():
         elif modeltype == 'jacobi':
             # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
             # trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
-            branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', degree=8, layernorm=False)
-            branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*3, p, modeltype='jacobi_kan', layernorm=False)
             branch_net1.to(device)
             branch_net2.to(device)
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='jacobi_kan', degree=8, layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='jacobi_kan', layernorm=False)
             trunk_net.to(device)
         elif modeltype == 'legendre':
             # branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
@@ -536,11 +550,11 @@ def main():
             trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='legendre_kan', degree=3, layernorm=False)
             trunk_net.to(device)
         else:
-            branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
-            branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net1 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            branch_net2 = DenseNet(layersizes=[sensor_size] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
             branch_net1.to(device)
             branch_net2.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*6 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU()) #nn.LeakyReLU() #nn.Tanh()
             trunk_net.to(device)
     elif mode == 'shallow':
         if modeltype=='efficient_kan':
@@ -574,9 +588,9 @@ def main():
             # trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', degree=8, layernorm=False)
             trunk_net.to(device)
         elif modeltype == 'jacobi':
-            branch_net1 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False, degree=8)
-            branch_net2 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False, degree=8)
-            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False, degree=8)
+            branch_net1 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            branch_net2 = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
             # branch_net1 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
             # branch_net2 = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', degree=8, layernorm=False)
             branch_net1.to(device)
@@ -660,6 +674,7 @@ def main():
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.yscale('log')
+    plt.yticks(ticks=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3])
     plt.title(f'{modeltype} 2D Darcy Train/Test Losses')
     plt.savefig(f'{output_dir}/{modeltype}_losses.jpg')
         

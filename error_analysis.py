@@ -72,12 +72,16 @@ def main():
 
         model.load_state_dict(torch.load(model_path))
         f1_train, f2_train, x_train, u_train, f1_test, f2_test, x_test, u_test = load_data_2d_darcy(device)
-        abserr, l2err = test_error_analysis_2d_darcy(f1_test, f2_test, x_test, u_test, model, modeltype, output_dir)
+        abserr, l2err, mse_errors = test_error_analysis_2d_darcy(f1_test, f2_test, x_test, u_test, model, modeltype, output_dir)
+
+
         # print(f"Absolute errors mean: {np.mean(abserr)}")
         print(f"Relative L2 error mean: {np.mean(l2err)}")
         print(f"Relative L2 error stdev: {np.std(l2err)}")
         print(f"Worst-case relative L2 error: {np.max(l2err)}")
-        print("L2 errors shape: ", np.shape(l2err))
+        print(f"Mean MSE: {np.mean(mse_errors)}")
+        print(f"MSE stdev: {np.std(mse_errors)}")
+        print(f"Worst-case MSE: {np.max(mse_errors)}")
         print("2D Darcy error analysis complete.")
     elif problem == '1d_darcy':
         print("Starting 1D Darcy error analysis.")
@@ -88,7 +92,7 @@ def main():
         model.load_state_dict(torch.load(model_path))
         input_train, output_train, x_train, input_test, output_test, x_test = load_data_1d_darcy(device)
         preds = model(input_test, x_test)
-        total_params = sum(p.numel() for p in model.parameters())
+        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameter count is {total_params}")
         abserr, l2err = test_error_analysis_1d_darcy(preds, output_test, x_test, output_dir, modeltype)
         # print(f"Absolute errors mean: {np.mean(np.sum(abserr, axis=1))}")
@@ -115,7 +119,7 @@ def main():
 
         model.load_state_dict(torch.load(model_path))
         inputs_train, inputs_test, outputs_train, outputs_test, grid, nx = load_data_burgers(device)
-        total_params = sum(p.numel() for p in model.parameters())
+        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameter count is {total_params}")
 
         mses, l2err = test_error_analysis_burgers(inputs_test, outputs_test, grid, nx, model, modeltype, output_dir)

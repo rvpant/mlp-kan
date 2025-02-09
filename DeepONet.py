@@ -505,7 +505,7 @@ def main():
     del_loss_list = [] #As above.
     iteration = 0
 
-    n_epochs = 2500 #1000 #800 # 10
+    n_epochs = 25000 #1000 #800 # 10
 
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.8) # gamma=0.8
     # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
@@ -571,7 +571,7 @@ def main():
                 del_loss_list.append((iteration, loss.item()))
             learningrates_list.append(optimizer.state_dict()['param_groups'][0]['lr'])
             iteration+=1
-        scheduler.step()
+        # scheduler.step()
         
     print(f"NAN losses: {nan_loss_list}")
     print(f"Loss magnitude changed: {del_loss_list}")
