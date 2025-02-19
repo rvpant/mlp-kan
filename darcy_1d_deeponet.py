@@ -120,9 +120,63 @@ def test_error_analysis(predictions, ground_truth, x, output_dir, modeltype):
     return abs_errors, l2_errors
 
 def create_model(modeltype, mode, device, adaptive=False):
-    input_neurons_branch = 50 #This is based on Xingjian's choice, worth changing?
+    # input_neurons_branch = 50 #This is based on Xingjian's choice, worth changing?
+    # input_neurons_trunk = 1
+    # p = 20 #Again, is this worth modifying?
+
+    # #Defining the model, across the two different modes.
+    # if mode=='shallow':
+    #     if modeltype=='efficient_kan':
+    #         branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*1 + [p])
+    #         trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*1 + [p])
+    #     elif modeltype == 'original_kan':
+    #         branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+    #         trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+    #     elif modeltype == 'cheby':
+    #         branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='cheby_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='cheby_kan', layernorm=False)
+    #     elif modeltype == 'jacobi':
+    #         branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='jacobi_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='jacobi_kan', layernorm=False)
+    #     elif modeltype == 'legendre':
+    #         branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
+    #     else:
+    #         branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+    #         # branch_net.to(device)
+    #         trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+    #         # trunk_net.to(device)
+    # elif mode=='deep':
+    #     if modeltype=='efficient_kan':
+    #         branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*2 + [p])
+    #         trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+    #     elif modeltype == 'original_kan':
+    #         print("WARNING: running using original KAN implementation: shallow and unstable.")
+    #         branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
+    #         trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
+    #     elif modeltype == 'cheby':
+    #         branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='cheby_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', layernorm=False)
+    #     elif modeltype == 'jacobi':
+    #         branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+    #     elif modeltype == 'legendre':
+    #         branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
+    #         trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
+    #     else:
+    #         branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+    #         # branch_net.to(device)
+    #         trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+    #         # trunk_net.to(device)
+    # else:
+    #     print('Invalid architecture mode argument passed: must be one of "shallow" or "deep" (default).')
+    #     return
+    # model = DeepONet(branch_net, trunk_net)
+    # model.to(device)
+
+    input_neurons_branch = 50 #based on dataset sampling
     input_neurons_trunk = 1
-    p = 20 #Again, is this worth modifying?
+    p = 100 #standardized across our operator learning problems.
 
     #Defining the model, across the two different modes.
     if mode=='shallow':
@@ -142,14 +196,14 @@ def create_model(modeltype, mode, device, adaptive=False):
             branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [1000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [1000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     elif mode=='deep':
         if modeltype=='efficient_kan':
-            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*2 + [p])
-            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [100]*3 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             print("WARNING: running using original KAN implementation: shallow and unstable.")
             branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
@@ -164,9 +218,9 @@ def create_model(modeltype, mode, device, adaptive=False):
             branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [256]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [256]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     else:
         print('Invalid architecture mode argument passed: must be one of "shallow" or "deep" (default).')
@@ -206,7 +260,10 @@ def main():
     print('device: ', device)
 
     #defining the output directory
-    output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}')
+    if adaptive:
+        output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}_adaptive')
+    else:
+        output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -245,9 +302,9 @@ def main():
     output_test = torch.from_numpy(data_test['u_test']).to(device).float()
     x_test = torch.from_numpy(data_test['x']).to(device).float().t()
 
-    input_neurons_branch = 50 #This is based on Xingjian's choice, worth changing?
+    input_neurons_branch = 50 #based on dataset sampling
     input_neurons_trunk = 1
-    p = 20 #Again, is this worth modifying?
+    p = 100 #standardized across our operator learning problems.
 
     #Added by Raghav: random, noisy perturbation of the training inputs.
     input_noise = torch.randn_like(input_train)*noise
@@ -271,14 +328,14 @@ def main():
             branch_net = KANBranchNet(input_neurons_branch, 2*input_neurons_branch+1, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, 2*input_neurons_trunk+1, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [1000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [10000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [1000]*1 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     elif mode=='deep':
         if modeltype=='efficient_kan':
-            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*2 + [p])
-            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [100]*3 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             print("WARNING: running using original KAN implementation: shallow and unstable.")
             branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
@@ -293,9 +350,9 @@ def main():
             branch_net = KANBranchNet(input_neurons_branch, [2*input_neurons_branch+1]*2, p, modeltype='legendre_kan', layernorm=False)
             trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
         else:
-            branch_net = DenseNet(layersizes=[input_neurons_branch] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            branch_net = DenseNet(layersizes=[input_neurons_branch] + [256]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # branch_net.to(device)
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [128]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [256]*3 + [p], activation=nn.ReLU(), adapt_activation=adaptive) #nn.LeakyReLU() #nn.Tanh()
             # trunk_net.to(device)
     else:
         print('Invalid architecture mode argument passed: must be one of "shallow" or "deep" (default).')
@@ -312,9 +369,8 @@ def main():
     epochs = 4000
     batch_size = 32
     train_losses = []
+    test_losses = []
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
-
-    #TODO: add learning rate scheduler?
 
     for epoch in range(epochs):
         model.train()
@@ -329,7 +385,7 @@ def main():
             loss = criterion(predictions, batch_output)
             loss.backward()
             optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         # Track training loss
         train_losses.append(loss.item())
@@ -341,6 +397,7 @@ def main():
     with torch.no_grad():
         predictions_test = model(input_test, x_test)
         test_loss = criterion(predictions_test, output_test)
+        test_losses.append(test_loss.item())
         print(f'Test Loss: {test_loss.item():.6f}')
         
         # Calculate additional metrics
@@ -349,6 +406,8 @@ def main():
 
     # Save model
     torch.save(model.state_dict(), f'{output_dir}/deeponet_model_{modeltype}.pt')
+    np.save(f'{output_dir}/deeponet_model_{modeltype}_loss_list.npy', np.asarray(train_losses))
+    np.save(f'{output_dir}/deeponet_model_{modeltype}_test_loss_list.npy', np.asarray(test_losses))
 
     # Save loss plot.
     fig, ax = plt.subplots()
@@ -374,6 +433,7 @@ def main():
             plt.legend()
         
         plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
         plt.suptitle(f'1D Darcy {modeltype} Predictions')
         plt.savefig(f'{output_dir}/{modeltype}_predictions_and_true.png', dpi=400,bbox_inches='tight')
         plt.show()
