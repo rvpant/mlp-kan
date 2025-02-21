@@ -146,7 +146,7 @@ def create_model(modeltype, mode, device):
     elif mode=='deep':
         if modeltype == 'efficient_kan':
             # branch_net = KAN(layers_hidden=[input_neurons_branch] + [100]*6 + [p])
-            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*3 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
         elif modeltype == 'cheby':
@@ -171,18 +171,18 @@ def create_model(modeltype, mode, device):
     if mode=='deep':
         if modeltype == 'efficient_kan':
             # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
-            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
         elif modeltype == 'cheby':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='cheby_kan', layernorm=False)
         elif modeltype == 'jacobi':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='jacobi_kan', layernorm=False)
         elif modeltype == 'legendre':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='legendre_kan', layernorm=False)
         else:
             # trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[128]*3+[p], activation=nn.SiLU())
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[128]*6+[p], activation=nn.SiLU())
     elif mode == 'shallow':
         if modeltype == 'efficient_kan':
             # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
@@ -416,7 +416,7 @@ def main():
     elif mode=='deep':
         if modeltype == 'efficient_kan':
             # branch_net = KAN(layers_hidden=[input_neurons_branch] + [100]*6 + [p])
-            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [2*input_neurons_branch+1]*3 + [p])
+            branch_net = efficient_kan.KAN(layers_hidden=[input_neurons_branch] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             branch_net = kan.KAN(width=[input_neurons_branch,2*input_neurons_branch+1,p], grid=5, k=3, seed=0)
         elif modeltype == 'cheby':
@@ -441,18 +441,18 @@ def main():
     if mode=='deep':
         if modeltype == 'efficient_kan':
             # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
-            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [2*input_neurons_trunk+1]*2 + [p])
+            trunk_net = efficient_kan.KAN(layers_hidden=[input_neurons_trunk] + [100]*3 + [p])
         elif modeltype == 'original_kan':
             trunk_net = kan.KAN(width=[input_neurons_trunk,2*input_neurons_trunk+1,p], grid=5, k=3, seed=0)
         elif modeltype == 'cheby':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='cheby_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='cheby_kan', layernorm=False)
         elif modeltype == 'jacobi':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='jacobi_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='jacobi_kan', layernorm=False)
         elif modeltype == 'legendre':
-            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*2, p, modeltype='legendre_kan', layernorm=False)
+            trunk_net = KANTrunkNet(input_neurons_trunk, [2*input_neurons_trunk+1]*3, p, modeltype='legendre_kan', layernorm=False)
         else:
             # trunk_net = DenseNet(layersizes=[input_neurons_trunk] + [100]*6 + [p], activation=nn.SiLU()) #nn.LeakyReLU() #nn.Tanh()
-            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[128]*3+[p], activation=nn.SiLU())
+            trunk_net = DenseNet(layersizes=[input_neurons_trunk]+[128]*6+[p], activation=nn.SiLU())
     elif mode == 'shallow':
         if modeltype == 'efficient_kan':
             # trunk_net = KAN(layers_hidden=[input_neurons_trunk] + [100]*6 + [p]) 
