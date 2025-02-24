@@ -107,7 +107,7 @@ def test_error_analysis(predictions, ground_truth, x, output_dir, modeltype):
     print(f"Predictions shape: {np.shape(uhat)}")
     print(f"True data shape: {np.shape(u)}")
     for pred, true in zip(uhat, u):
-        print(np.shape(pred), np.shape(true))
+        # print(np.shape(pred), np.shape(true))
         num = np.linalg.norm(pred-true, ord=2)
         denom = np.linalg.norm(true)
         l2_errors.append(num/denom)
@@ -263,7 +263,7 @@ def main():
     if adaptive:
         output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}_adaptive')
     else:
-        output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}')
+        output_dir = os.path.join(os.getcwd(), f'1D_Darcy_DeepONet/{mode}-e4')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -405,9 +405,9 @@ def main():
         print(f'Test RMSE: {rmse:.6f}')
 
     # Save model
-    torch.save(model.state_dict(), f'{output_dir}/deeponet_model_{modeltype}.pt')
-    np.save(f'{output_dir}/deeponet_model_{modeltype}_loss_list.npy', np.asarray(train_losses))
-    np.save(f'{output_dir}/deeponet_model_{modeltype}_test_loss_list.npy', np.asarray(test_losses))
+    torch.save(model.state_dict(), f'{output_dir}/deeponet_model_{modeltype}-e4.pt')
+    np.save(f'{output_dir}/deeponet_model_{modeltype}-e4_loss_list.npy', np.asarray(train_losses))
+    np.save(f'{output_dir}/deeponet_model_{modeltype}-e4_test_loss_list.npy', np.asarray(test_losses))
 
     # Save loss plot.
     fig, ax = plt.subplots()
@@ -416,7 +416,7 @@ def main():
     ax.set_ylabel("Loss (log scale)")
     ax.set_yscale("log")
     ax.set_title(f"{modeltype} Training Loss")
-    fig.savefig(f"{output_dir}/{modeltype}_train_loss.jpg")
+    fig.savefig(f"{output_dir}/{modeltype}-e4_train_loss.jpg")
 
 
 
@@ -435,7 +435,7 @@ def main():
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
         plt.suptitle(f'1D Darcy {modeltype} Predictions')
-        plt.savefig(f'{output_dir}/{modeltype}_predictions_and_true.png', dpi=400,bbox_inches='tight')
+        plt.savefig(f'{output_dir}/{modeltype}-e4_predictions_and_true.png', dpi=400,bbox_inches='tight')
         plt.show()
 
     # Evaluation and plotting

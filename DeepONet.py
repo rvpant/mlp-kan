@@ -269,7 +269,55 @@ def load_data(device):
 
 
     print("Burgers data loaded.")
-    return inputs_train, inputs_test, outputs_train, outputs_test, grid, nx
+    return inputs_train, inputs_test, outputs_train, outputs_test, grid, nt, nx, T, X, t_span, x_span
+
+def plot_results(model, modeltype, inputs_test, outputs_test, grid, nt, nx, T, X, t_span, x_span, plots_resultdir):
+    for i in range(inputs_test.shape[0]):
+
+        branch_inputs = inputs_test[i].reshape(1, nx) # (bs, m) = (1, nx) 
+        trunk_inputs = grid # (neval, 2) = (nt*nx, 2)
+
+        prediction_i = model(branch_inputs, trunk_inputs).cpu() # (bs, neval) = (1, nt*nx)
+        target_i = outputs_test[i].reshape(1, -1).cpu()
+
+        if (i+1) % 10 == 0:
+            fig = plt.figure(figsize=(15,4))
+            plt.subplots_adjust(left = 0.1, bottom = 0.1, right = 0.9, top = 0.5, wspace = 0.4, hspace = 0.1)
+            
+            ax = fig.add_subplot(1, 4, 1)    
+            ax.plot(x_span.cpu().detach().numpy(), inputs_test[i].cpu().detach().numpy())
+            ax.set_xlabel(r'$x$')
+            ax.set_ylabel(r'$s(t=0, x)$')
+            plt.tight_layout()
+            
+            ax = fig.add_subplot(1, 4, 2)  
+            plt.pcolor(X.cpu().detach().numpy(), T.cpu().detach().numpy(), outputs_test[i].cpu().detach().numpy(), cmap='jet')
+            plt.colorbar()
+            ax.set_xlabel(r'$x$')
+            ax.set_ylabel(r'$t$')
+            plt.title('$True \ field$',fontsize=14)
+            plt.tight_layout()
+
+            ax = fig.add_subplot(1, 4, 3)  
+            plt.pcolor(X.cpu().detach().numpy(), T.cpu().detach().numpy(), prediction_i.reshape(nt, nx).cpu().detach().numpy(), cmap='jet')
+            plt.colorbar()
+            ax.set_xlabel(r'$x$')
+            ax.set_ylabel(r'$t$')
+            plt.title('$Predicted \ field$',fontsize=14)  
+            plt.tight_layout()
+            
+            ax = fig.add_subplot(1, 4, 4)  
+            plt.pcolor(X.cpu().detach().numpy(), T.cpu().detach().numpy(), np.abs(outputs_test[i].cpu().detach().numpy() - prediction_i.reshape(nt, nx).cpu().detach().numpy()), cmap='jet')
+            plt.colorbar()
+            ax.set_xlabel(r'$x$')
+            ax.set_ylabel(r'$t$')
+            plt.title('$Absolute \ error$',fontsize=14)  
+            plt.tight_layout()
+
+            # fig.suptitle(f"Example {i} Test Results")
+
+            plt.savefig(os.path.join(plots_resultdir,'Test_Sample_'+str(i+1)+f'_{modeltype}.png'))
+            plt.close()
 
 def main():
     # %%
@@ -286,11 +334,18 @@ def main():
                             choices=['shallow', 'deep'])
     model_parser.add_argument('-noise', dest='noise', type=float, default=0.0,
                             help='Input perturbation noise.')
+    model_parser.add_argument('-lr', dest='lr',type=float, default=1e-4,
+                                help='Learning rate for optimizer.')
+    model_parser.add_argument('-scheduler', action='store_true', help='Enables learning rate step scheduler.')
     args = model_parser.parse_args()
     modeltype = args.modeltype
     mode = args.mode
     noise = args.noise
+    lr = args.lr
+    scheduler_enabled = args.scheduler
     print(f"Running with modeltype {modeltype}, architecture mode {mode}.")
+    print(f"Learning rate input is set as {lr}.")
+    print(f"LR SCHEDULER: {scheduler_enabled}")
     # modeltype = "efficient_kan" # "densenet"  #
 
     # %%
@@ -498,7 +553,7 @@ def main():
     # print("Number of batches:", num_batches)
             
     # Training
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     iteration_list, loss_list, learningrates_list = [], [], []
     nan_loss_list = [] #Raghav debugging for nan loss in new architectures.
@@ -507,9 +562,9 @@ def main():
 
     n_epochs = 25000 #1000 #800 # 10
 
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.8) # gamma=0.8
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.85) # gamma=0.8
     # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=5e-5)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=5e-5)
 
     for epoch in range(n_epochs):
         
@@ -571,7 +626,8 @@ def main():
                 del_loss_list.append((iteration, loss.item()))
             learningrates_list.append(optimizer.state_dict()['param_groups'][0]['lr'])
             iteration+=1
-        # scheduler.step()
+        if scheduler_enabled:
+            scheduler.step()
         
     print(f"NAN losses: {nan_loss_list}")
     print(f"Loss magnitude changed: {del_loss_list}")

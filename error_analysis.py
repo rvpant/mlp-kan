@@ -85,9 +85,9 @@ def main():
         print("2D Darcy error analysis complete.")
     elif problem == '1d_darcy':
         print("Starting 1D Darcy error analysis.")
-        model_path = f'./1D_Darcy_DeepONet/{mode}/deeponet_model_{modeltype}.pt'
+        model_path = f'./1D_Darcy_DeepONet/{mode}-e4/deeponet_model_{modeltype}-e4.pt'
         model = create_model_1d_darcy(modeltype, mode, device)
-        output_dir = f'./1D_Darcy_DeepONet/{mode}'
+        output_dir = f'./1D_Darcy_DeepONet/{mode}-e4'
 
         model.load_state_dict(torch.load(model_path))
         input_train, output_train, x_train, input_test, output_test, x_test = load_data_1d_darcy(device)
@@ -103,6 +103,7 @@ def main():
         print("1D Darcy error analysis complete.")
 
         #ADD function call for noisy analysis.
+        print("Starting NOISE analysis.")
         for n in [0.01, 0.05, 0.1]:
             print(f"Noise = {n}")
             noisy_abserr, noisy_l2err = noise_analysis(n, model, problem, device)
@@ -111,6 +112,7 @@ def main():
             print(f"Noisy Relative L2 error std: {np.std(noisy_l2err)}")
             print(f"Noisy Worst-case relative L2 error: {np.max(noisy_l2err)}")
             # print("Noisy L2 errors: ", noisy_l2err)
+        print("Noisy analysis complete.")
 
     else:
         model_path = f'./DeepONet_results/{mode}/seed=0/model_state_dict_{modeltype}.pt'
@@ -118,7 +120,7 @@ def main():
         output_dir = f'./DeepONet_results/{mode}'
 
         model.load_state_dict(torch.load(model_path))
-        inputs_train, inputs_test, outputs_train, outputs_test, grid, nx = load_data_burgers(device)
+        inputs_train, inputs_test, outputs_train, outputs_test, grid, nt, nx, T, X, t_span, x_span = load_data_burgers(device)
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameter count is {total_params}")
 
